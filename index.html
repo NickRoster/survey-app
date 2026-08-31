@@ -213,9 +213,9 @@
 
   <section class="card">
     <h2><span class="num">3</span> Adult Trees (CBH &gt; 15 cm)</h2>
-    <p class="note">Locate existing tagged trees; give newly-recruited adults (no existing tag) a new blue tag.</p>
+    <p class="note">Locate existing tagged trees; give newly-recruited adults (no existing tag) a new blue tag. Mark "Dead?" for any previously tagged tree found dead or fallen.</p>
     <table class="dyn" id="adultTable">
-      <thead><tr><th style="width:14%">Tag #</th><th>Species</th><th style="width:14%">CBH (cm)</th><th style="width:16%">Canopy ht (m)</th><th style="width:16%">New tag? (blue)</th><th style="width:26%">Notes</th><th></th></tr></thead>
+      <thead><tr><th style="width:10%">Tag #</th><th>Species</th><th style="width:10%">CBH (cm)</th><th style="width:12%">Canopy ht (m)</th><th style="width:12%">New tag? (blue)</th><th style="width:10%">Dead?</th><th style="width:20%">Notes</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
     <button class="btn-secondary btn-small" data-add="adultTable">＋ Add tree</button>
@@ -387,7 +387,7 @@
 
   // ================= Dynamic table helpers =================
   const TABLE_DEFS = {
-    adultTable: { cols: ["tag","species","cbh","canopyHt","newTag","notes"], types: ["text","text","number","number","select-yn","text"] },
+    adultTable: { cols: ["tag","species","cbh","canopyHt","newTag","dead","notes"], types: ["text","text","number","number","select-yn","select-yn","text"] },
     juvTable:   { cols: ["species","total"], types: ["text","number"] },
     unkTable:   { cols: ["name","location","description","collected"], types: ["text","text","text","select-yn"] }
   };
@@ -667,7 +667,7 @@
     let csv = "";
     csv += toCsvBlock("PLOT SUMMARY", ["plotID","date","observers","startTime","lat","lon","totalCanopy","avgQuadratCanopy"], recs);
     const adultRows = []; recs.forEach(r => (r.adultTrees||[]).forEach(t => adultRows.push({plotID:r.plotID, ...t})));
-    csv += toCsvBlock("ADULT TREES", ["plotID","tag","species","cbh","canopyHt","newTag","notes"], adultRows);
+    csv += toCsvBlock("ADULT TREES", ["plotID","tag","species","cbh","canopyHt","newTag","dead","notes"], adultRows);
     const juvRows = []; recs.forEach(r => (r.juvenileTrees||[]).forEach(t => juvRows.push({plotID:r.plotID, ...t})));
     csv += toCsvBlock("JUVENILE TREES", ["plotID","species","total"], juvRows);
     const quadRows = []; recs.forEach(r => Object.entries(r.quadrats||{}).forEach(([key,q]) => quadRows.push({plotID:r.plotID, quadrat:key, canopy:q.canopy, cwd:q.cwd, bare:q.bare, dist:q.dist, unk:q.unk})));

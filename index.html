@@ -437,6 +437,14 @@
       block.dataset.quadKey = key;
       block.innerHTML = `
         <h3>Quadrat — ${label}</h3>
+        <div class="field">
+          <label>GPS coordinates (5 decimal places)</label>
+          <div class="gps-row">
+            <div class="field"><input type="text" class="q-lat" placeholder="Latitude"></div>
+            <div class="field"><input type="text" class="q-lon" placeholder="Longitude"></div>
+            <button class="btn-secondary btn-small q-gps-btn" type="button">📍</button>
+          </div>
+        </div>
         <div class="grid3">
           <div class="field"><label>% Canopy (CanopyApp)</label><input type="number" min="0" max="100" class="q-canopy"></div>
           <div class="field"><label>% Coarse woody debris</label><input type="number" min="0" max="100" class="q-cwd"></div>
@@ -455,7 +463,21 @@
       wrap.appendChild(block);
       block.querySelector(".add-row-q").addEventListener("click", () => addQuadratSpeciesRow(block));
       block.querySelector(".q-canopy").addEventListener("input", updateAvgCanopy);
+      block.querySelector(".q-gps-btn").addEventListener("click", () => useQuadratLocation(block));
     });
+  }
+  function useQuadratLocation(block) {
+    if (!navigator.geolocation) { showStatus("Geolocation not supported on this device.", "err"); return; }
+    showStatus("Getting location…", "warn");
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        block.querySelector(".q-lat").value = pos.coords.latitude.toFixed(5);
+        block.querySelector(".q-lon").value = pos.coords.longitude.toFixed(5);
+        showStatus("Location captured.", "ok");
+      },
+      err => showStatus("Couldn't get location (" + err.message + "). Enter coordinates manually.", "err"),
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
   }
   function addQuadratSpeciesRow(block, values) {
     const tbody = block.querySelector(".q-species tbody");
@@ -478,7 +500,9 @@
       out[key] = {
         canopy: block.querySelector(".q-canopy").value, cwd: block.querySelector(".q-cwd").value,
         bare: block.querySelector(".q-bare").value, dist: block.querySelector(".q-dist").value,
-        unk: block.querySelector(".q-unk").value, species
+        unk: block.querySelector(".q-unk").value,
+        lat: block.querySelector(".q-lat").value, lon: block.querySelector(".q-lon").value,
+        species
       };
     });
     return out;
@@ -588,6 +612,8 @@
         block.querySelector(".q-bare").value = q.bare || "";
         block.querySelector(".q-dist").value = q.dist || "";
         block.querySelector(".q-unk").value = q.unk || "";
+        block.querySelector(".q-lat").value = q.lat || "";
+        block.querySelector(".q-lon").value = q.lon || "";
         (q.species||[]).forEach(s => addQuadratSpeciesRow(block, s));
       });
     }
@@ -670,8 +696,8 @@
     csv += toCsvBlock("ADULT TREES", ["plotID","tag","species","cbh","canopyHt","newTag","dead","notes"], adultRows);
     const juvRows = []; recs.forEach(r => (r.juvenileTrees||[]).forEach(t => juvRows.push({plotID:r.plotID, ...t})));
     csv += toCsvBlock("JUVENILE TREES", ["plotID","species","total"], juvRows);
-    const quadRows = []; recs.forEach(r => Object.entries(r.quadrats||{}).forEach(([key,q]) => quadRows.push({plotID:r.plotID, quadrat:key, canopy:q.canopy, cwd:q.cwd, bare:q.bare, dist:q.dist, unk:q.unk})));
-    csv += toCsvBlock("QUADRAT SUMMARY", ["plotID","quadrat","canopy","cwd","bare","dist","unk"], quadRows);
+    const quadRows = []; recs.forEach(r => Object.entries(r.quadrats||{}).forEach(([key,q]) => quadRows.push({plotID:r.plotID, quadrat:key, lat:q.lat, lon:q.lon, canopy:q.canopy, cwd:q.cwd, bare:q.bare, dist:q.dist, unk:q.unk})));
+    csv += toCsvBlock("QUADRAT SUMMARY", ["plotID","quadrat","lat","lon","canopy","cwd","bare","dist","unk"], quadRows);
     const quadSpecies = []; recs.forEach(r => Object.entries(r.quadrats||{}).forEach(([key,q]) => (q.species||[]).forEach(s => quadSpecies.push({plotID:r.plotID, quadrat:key, name:s.name, count:s.count}))));
     csv += toCsvBlock("QUADRAT SPECIES", ["plotID","quadrat","name","count"], quadSpecies);
     const rapidRows = []; recs.forEach(r => (r.rapidAssessment||[]).forEach(sp => rapidRows.push({plotID:r.plotID, species:sp})));

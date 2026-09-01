@@ -1,4 +1,4 @@
-const CACHE_NAME = "csa-field-app-v2";
+const CACHE_NAME = "csa-field-app-v3";
 const APP_SHELL = [
   "./",
   "./index.html",

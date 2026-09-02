@@ -691,7 +691,8 @@
   }
   function buildCombinedCsv(recs) {
     let csv = "";
-    csv += toCsvBlock("PLOT SUMMARY", ["plotID","date","observers","startTime","lat","lon","totalCanopy","avgQuadratCanopy"], recs);
+    const recsWithConflicts = recs.map(r => Object.assign({}, r, { conflicts: (r.conflicts||[]).join(" | ") }));
+    csv += toCsvBlock("PLOT SUMMARY", ["plotID","date","observers","startTime","lat","lon","totalCanopy","avgQuadratCanopy","conflicts"], recsWithConflicts);
     const adultRows = []; recs.forEach(r => (r.adultTrees||[]).forEach(t => adultRows.push({plotID:r.plotID, ...t})));
     csv += toCsvBlock("ADULT TREES", ["plotID","tag","species","cbh","canopyHt","newTag","dead","notes"], adultRows);
     const juvRows = []; recs.forEach(r => (r.juvenileTrees||[]).forEach(t => juvRows.push({plotID:r.plotID, ...t})));
@@ -758,11 +759,19 @@
       const res = await fetch(endpointUrl, { method: "GET" });
       if (!res.ok) throw new Error("Server responded with " + res.status);
       const all = await res.json();
-      sharedStatus.innerHTML = `<div class="status-msg status-ok">${all.length} plot record(s) in the shared database.</div>`;
-      list.innerHTML = "<table class='dyn'><thead><tr><th>Plot ID</th><th>Date</th><th>Observers</th><th>Adult trees</th><th>Quadrat species</th></tr></thead><tbody>" +
+      const conflictCount = all.reduce((n, r) => n + ((r.conflicts || []).length), 0);
+      sharedStatus.innerHTML = conflictCount > 0
+        ? `<div class="status-msg status-warn">${all.length} plot record(s) — ${conflictCount} flagged conflict(s) need review below.</div>`
+        : `<div class="status-msg status-ok">${all.length} plot record(s) in the shared database. No conflicts.</div>`;
+      list.innerHTML = "<table class='dyn'><thead><tr><th>Plot ID</th><th>Date</th><th>Observers</th><th>Adult trees</th><th>Quadrat species</th><th>Conflicts</th></tr></thead><tbody>" +
         all.map(r => {
           const qSpeciesCount = Object.values(r.quadrats||{}).reduce((n,q) => n + ((q && q.species) || []).length, 0);
-          return `<tr><td>${r.plotID||""}</td><td>${r.date||""}</td><td>${r.observers||""}</td><td>${(r.adultTrees||[]).length}</td><td>${qSpeciesCount}</td></tr>`;
+          const conflicts = r.conflicts || [];
+          const conflictCell = conflicts.length
+            ? `<span style="color:var(--rust); font-weight:700;">${conflicts.length} ⚠</span>`
+            : "—";
+          return `<tr><td>${r.plotID||""}</td><td>${r.date||""}</td><td>${r.observers||""}</td><td>${(r.adultTrees||[]).length}</td><td>${qSpeciesCount}</td><td>${conflictCell}</td></tr>` +
+            (conflicts.length ? `<tr><td colspan="6" style="background:#FCEFD8; font-size:0.78rem; color:#7A5310;">${conflicts.map(c => "• " + c).join("<br>")}</td></tr>` : "");
         }).join("") + "</tbody></table>";
       dlBtn.style.display = "block";
       dlBtn.onclick = () => downloadFile(`csa-shared-database-${Date.now()}.csv`, buildCombinedCsv(all), "text/csv");

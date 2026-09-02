@@ -70,6 +70,22 @@ but don't post it somewhere public.
 4. The Google Sheet itself also fills up automatically — you can open it
    directly any time to see the raw incoming data.
 
+## Multiple iPads on the same plot
+
+If several iPads collect different, non-overlapping pieces of the same
+plot (e.g. one does Adult Trees, another does the NW and NE quadrats),
+their uploads are matched by **Plot ID + Date** and merged into a single
+row in the Google Sheet — not one row per iPad. Each upload fills in
+whatever was still blank.
+
+If two uploads genuinely disagree on the same field (say, two different
+CBH values entered for the same tag number), nothing is silently
+overwritten: the original value is kept, and the disagreement is recorded
+in a **conflicts** column so you can review and resolve it. Identical
+duplicate entries (two students correctly logging the same tree the same
+way) are merged quietly with no flag. The "Load shared database" view in
+the app highlights any plot with outstanding conflicts.
+
 ## Updating the app later
 
 If you edit `index.html` (or any file) and re-upload it to GitHub, the

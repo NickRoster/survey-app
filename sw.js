@@ -1,4 +1,4 @@
-const CACHE_NAME = "csa-field-app-v3";
+const CACHE_NAME = "csa-field-app-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,6 +6,11 @@ const APP_SHELL = [
   "./icon-192.png",
   "./icon-512.png"
 ];
+// Precompute the exact absolute URLs these resolve to, so the fetch handler
+// can do a strict match instead of a loose (and previously buggy) string
+// comparison that ended up matching every GET request, including calls to
+// the external Google Sheet sync endpoint.
+const APP_SHELL_URLS = APP_SHELL.map((f) => new URL(f, self.location.href).href);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -23,11 +28,11 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Cache-first for app shell files; network for everything else (e.g. the
-// Google Sheet sync endpoint, which should never be served from cache).
+// Cache-first for the app's own shell files only; network for everything
+// else (e.g. the Google Sheet sync endpoint), which must never be served
+// from cache since it needs to always reflect the live shared database.
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  const isAppShellFile = APP_SHELL.some((f) => url.pathname.endsWith(f.replace("./", "")));
+  const isAppShellFile = APP_SHELL_URLS.includes(event.request.url);
 
   if (event.request.method !== "GET" || !isAppShellFile) {
     return; // let the browser handle it normally (e.g. sync POST/GET requests)

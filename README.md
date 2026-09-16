@@ -9,11 +9,12 @@ field, and syncs to a shared Google Sheet once you're back on wifi.
 1. Create a GitHub account if you don't have one: https://github.com/join
 2. Create a new repository — e.g. `csa-field-app`. Public is fine (no
    private student data lives in this repo, just the app itself).
-3. Upload these five files to the repo (drag-and-drop works on
+3. Upload these six files to the repo (drag-and-drop works on
    github.com — "Add file" → "Upload files"):
    - `index.html`
    - `manifest.json`
    - `sw.js`
+   - `tree-data.js`
    - `icon-192.png`
    - `icon-512.png`
    (Keep `apps-script.gs` aside — that one goes into Google Apps Script in
@@ -52,6 +53,12 @@ but don't post it somewhere public.
 
 ## Using it in the field
 
+- Pick the **Plot ID** from the dropdown. If it's one of the 30 original
+  2009 plots, the Adult Trees table auto-fills with each tagged tree's
+  original tag number and species, and shows its 2009 CBH/canopy height as
+  grey placeholder text in the (empty) measurement fields — there for
+  cross-reference, but you still have to type in a fresh measurement. If
+  the plot isn't in the list, choose "Other" and type it in manually.
 - Fill in plots and tap **Save plot record** as normal — data is written
   to the iPad's on-device storage immediately, so closing the app,
   restarting the iPad, or losing the tab does **not** lose saved records.

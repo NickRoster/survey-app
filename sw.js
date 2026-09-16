@@ -1,10 +1,11 @@
-const CACHE_NAME = "csa-field-app-v5";
+const CACHE_NAME = "csa-field-app-v10";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./manifest.json",
   "./icon-192.png",
-  "./icon-512.png"
+  "./icon-512.png",
+  "./tree-data.js"
 ];
 // Precompute the exact absolute URLs these resolve to, so the fetch handler
 // can do a strict match instead of a loose (and previously buggy) string

@@ -182,7 +182,11 @@
   <section class="card">
     <h2><span class="num">1</span> Plot Identification</h2>
     <div class="grid2">
-      <div class="field"><label>Plot ID</label><input type="text" id="plotID" placeholder="e.g. A12"></div>
+      <div class="field">
+        <label>Plot ID</label>
+        <select id="plotID"><option value="">— select plot —</option></select>
+        <input type="text" id="plotIDOther" placeholder="Type plot ID" style="display:none; margin-top:6px;">
+      </div>
       <div class="field"><label>Date</label><input type="date" id="plotDate"></div>
       <div class="field"><label>Observer(s)</label><input type="text" id="observers"></div>
       <div class="field"><label>Start time</label><input type="time" id="startTime"></div>
@@ -213,9 +217,9 @@
 
   <section class="card">
     <h2><span class="num">3</span> Adult Trees (CBH &gt; 15 cm)</h2>
-    <p class="note">Locate existing tagged trees; give newly-recruited adults (no existing tag) a new blue tag. Mark "Dead?" for any previously tagged tree found dead or fallen.</p>
+    <p class="note">Locate existing tagged trees; give newly-recruited adults (no existing tag) a new blue tag. If an original tag is unreadable or swallowed by growth, give the tree a new blue tag (same as a new recruit) and record the old tag number in "Old tag #" — that field is what distinguishes a re-tag from a genuine new recruit, since the tag color is the same. Mark "Dead?" for any previously tagged tree found dead or fallen.</p>
     <table class="dyn" id="adultTable">
-      <thead><tr><th style="width:10%">Tag #</th><th>Species</th><th style="width:10%">CBH (cm)</th><th style="width:12%">Canopy ht (m)</th><th style="width:12%">New tag? (blue)</th><th style="width:10%">Dead?</th><th style="width:20%">Notes</th><th></th></tr></thead>
+      <thead><tr><th style="width:9%">Tag #</th><th>Species</th><th style="width:9%">CBH (cm)</th><th style="width:11%">Canopy ht (m)</th><th style="width:11%">New tag? (blue)</th><th style="width:11%">Old tag #</th><th style="width:8%">Dead?</th><th style="width:18%">Notes</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
     <button class="btn-secondary btn-small" data-add="adultTable">＋ Add tree</button>
@@ -309,6 +313,7 @@
   <button class="btn-primary" id="saveBtn">Save plot record</button>
 </footer>
 
+<script src="tree-data.js"></script>
 <script>
 (function(){
   "use strict";
@@ -390,7 +395,7 @@
 
   // ================= Dynamic table helpers =================
   const TABLE_DEFS = {
-    adultTable: { cols: ["tag","species","cbh","canopyHt","newTag","dead","notes"], types: ["text","text","number","number","select-yn","select-yn","text"] },
+    adultTable: { cols: ["tag","species","cbh","canopyHt","newTag","oldTag","dead","notes"], types: ["text","text","number","number","select-yn","text","select-yn","text"] },
     juvTable:   { cols: ["species","total"], types: ["text","number"] },
     unkTable:   { cols: ["name","location","description","collected"], types: ["text","text","text","select-yn"] }
   };
@@ -399,7 +404,7 @@
     if (type === "number") return `<input type="number" step="any">`;
     return `<input type="text">`;
   }
-  function addRow(tableId, values) {
+  function addRow(tableId, values, placeholders) {
     const def = TABLE_DEFS[tableId];
     const tbody = document.querySelector(`#${tableId} tbody`);
     const tr = document.createElement("tr");
@@ -409,6 +414,7 @@
       const input = td.querySelector("input,select");
       input.dataset.col = col;
       if (values && values[col] !== undefined) input.value = values[col];
+      if (placeholders && placeholders[col] !== undefined && input.tagName === "INPUT") input.placeholder = placeholders[col];
       tr.appendChild(td);
     });
     const delTd = document.createElement("td");
@@ -428,6 +434,74 @@
   }
   function clearTable(tableId) { document.querySelector(`#${tableId} tbody`).innerHTML = ""; }
   document.querySelectorAll("[data-add]").forEach(btn => btn.addEventListener("click", () => addRow(btn.dataset.add)));
+
+  // ================= Plot ID dropdown + original (2009) tree data =================
+  function populatePlotDropdown() {
+    const select = document.getElementById("plotID");
+    const known = (typeof ORIGINAL_TREE_DATA !== "undefined") ? Object.keys(ORIGINAL_TREE_DATA).sort() : [];
+    known.forEach(pid => {
+      const opt = document.createElement("option");
+      opt.value = pid; opt.textContent = pid;
+      select.appendChild(opt);
+    });
+    const otherOpt = document.createElement("option");
+    otherOpt.value = "__other__"; otherOpt.textContent = "Other (not listed)";
+    select.appendChild(otherOpt);
+  }
+
+  function getPlotIdValue() {
+    const select = document.getElementById("plotID");
+    if (select.value === "__other__") return document.getElementById("plotIDOther").value.trim();
+    return select.value;
+  }
+
+  function setPlotIdValue(pid) {
+    const select = document.getElementById("plotID");
+    const otherInput = document.getElementById("plotIDOther");
+    const known = [...select.options].some(o => o.value === pid);
+    if (pid && !known) {
+      select.value = "__other__";
+      otherInput.style.display = "block";
+      otherInput.value = pid;
+    } else {
+      select.value = pid || "";
+      otherInput.style.display = "none";
+      otherInput.value = "";
+    }
+  }
+
+  function loadOriginalTreeData(pid) {
+    const rows = (typeof ORIGINAL_TREE_DATA !== "undefined") ? ORIGINAL_TREE_DATA[pid] : null;
+    if (!rows || rows.length === 0) return 0;
+    const existingTags = new Set([...document.querySelectorAll('#adultTable [data-col="tag"]')].map(i => i.value.trim()));
+    let added = 0;
+    rows.forEach(([tag, species, cbh, height]) => {
+      if (existingTags.has(tag)) return; // already present this session, don't duplicate
+      addRow("adultTable", { tag, species }, { cbh: `2009: ${cbh} cm`, canopyHt: `2009: ${height} m` });
+      added++;
+    });
+    return added;
+  }
+
+  document.getElementById("plotID").addEventListener("change", () => {
+    const select = document.getElementById("plotID");
+    const otherInput = document.getElementById("plotIDOther");
+    if (select.value === "__other__") {
+      otherInput.style.display = "block";
+      otherInput.focus();
+      return;
+    }
+    otherInput.style.display = "none";
+    otherInput.value = "";
+    const pid = select.value;
+    if (!pid) return;
+    const count = loadOriginalTreeData(pid);
+    if (count > 0) {
+      showStatus(`Loaded ${count} tagged tree(s) from the 2009 survey for ${pid} — CBH/height shown as placeholders for reference.`, "ok");
+    } else if (typeof ORIGINAL_TREE_DATA !== "undefined" && !ORIGINAL_TREE_DATA[pid]) {
+      showStatus(`No 2009 reference data on file for ${pid}.`, "warn");
+    }
+  });
 
   // ================= Quadrats =================
   function buildQuadrats() {
@@ -575,7 +649,7 @@
   // ================= Form <-> record =================
   function gatherForm() {
     const rec = {
-      plotID: document.getElementById("plotID").value,
+      plotID: getPlotIdValue(),
       date: document.getElementById("plotDate").value,
       observers: document.getElementById("observers").value,
       startTime: document.getElementById("startTime").value,
@@ -596,7 +670,7 @@
     return rec;
   }
   function loadForm(rec) {
-    document.getElementById("plotID").value = rec.plotID || "";
+    setPlotIdValue(rec.plotID || "");
     document.getElementById("plotDate").value = rec.date || "";
     document.getElementById("observers").value = rec.observers || "";
     document.getElementById("startTime").value = rec.startTime || "";
@@ -627,7 +701,8 @@
     editingId = rec.id !== undefined ? rec.id : null;
   }
   function resetForm() {
-    ["plotID","observers","startTime","gpsLat","gpsLon","totalCanopy","notes"].forEach(id => document.getElementById(id).value = "");
+    ["observers","startTime","gpsLat","gpsLon","totalCanopy","notes"].forEach(id => document.getElementById(id).value = "");
+    setPlotIdValue("");
     document.getElementById("plotDate").valueAsDate = new Date();
     clearTable("adultTable"); clearTable("juvTable"); clearTable("unkTable");
     buildQuadrats(); updateAvgCanopy();
@@ -697,7 +772,7 @@
     const recsWithConflicts = recs.map(r => Object.assign({}, r, { conflicts: (r.conflicts||[]).join(" | ") }));
     csv += toCsvBlock("PLOT SUMMARY", ["plotID","date","observers","startTime","lat","lon","totalCanopy","avgQuadratCanopy","conflicts"], recsWithConflicts);
     const adultRows = []; recs.forEach(r => (r.adultTrees||[]).forEach(t => adultRows.push({plotID:r.plotID, ...t})));
-    csv += toCsvBlock("ADULT TREES", ["plotID","tag","species","cbh","canopyHt","newTag","dead","notes"], adultRows);
+    csv += toCsvBlock("ADULT TREES", ["plotID","tag","species","cbh","canopyHt","newTag","oldTag","dead","notes"], adultRows);
     const juvRows = []; recs.forEach(r => (r.juvenileTrees||[]).forEach(t => juvRows.push({plotID:r.plotID, ...t})));
     csv += toCsvBlock("JUVENILE TREES", ["plotID","species","total"], juvRows);
     const quadRows = []; recs.forEach(r => Object.entries(r.quadrats||{}).forEach(([key,q]) => quadRows.push({plotID:r.plotID, quadrat:key, lat:q.lat, lon:q.lon, canopy:q.canopy, cwd:q.cwd, bare:q.bare, dist:q.dist, unk:q.unk})));
@@ -807,6 +882,7 @@
 
   // ================= Init =================
   async function init() {
+    populatePlotDropdown();
     buildQuadrats();
     updateNetState();
     try {

@@ -477,7 +477,7 @@
     let added = 0;
     rows.forEach(([tag, species, cbh, height]) => {
       if (existingTags.has(tag)) return; // already present this session, don't duplicate
-      addRow("adultTable", { tag, species }, { cbh: `2009: ${cbh} cm`, canopyHt: `2009: ${height} m` });
+      addRow("adultTable", { tag, species }, { cbh: `${cbh} cm ('09)`, canopyHt: `${height} m ('09)` });
       added++;
     });
     return added;

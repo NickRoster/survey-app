@@ -217,9 +217,9 @@
 
   <section class="card">
     <h2><span class="num">3</span> Adult Trees (CBH &gt; 15 cm)</h2>
-    <p class="note">Locate existing tagged trees; give newly-recruited adults (no existing tag) a new blue tag. If an original tag is unreadable or swallowed by growth, give the tree a new blue tag (same as a new recruit) and record the old tag number in "Old tag #" — that field is what distinguishes a re-tag from a genuine new recruit, since the tag color is the same. Mark "Dead?" for any previously tagged tree found dead or fallen.</p>
+    <p class="note">Locate existing tagged trees; give newly-recruited adults (no existing tag) a new blue tag. If an original tag is unreadable or swallowed by growth, give the tree a new blue tag (same as a new recruit) and record the old tag number in "Old tag #" — that field is what distinguishes a re-tag from a genuine new recruit, since the tag color is the same. Mark "Dead?" for any previously tagged tree found dead or fallen. Tap 📐 next to Canopy ht to calculate it from rangefinder readings.</p>
     <table class="dyn" id="adultTable">
-      <thead><tr><th style="width:9%">Tag #</th><th>Species</th><th style="width:9%">CBH (cm)</th><th style="width:11%">Canopy ht (m)</th><th style="width:11%">New tag? (blue)</th><th style="width:11%">Old tag #</th><th style="width:8%">Dead?</th><th style="width:18%">Notes</th><th></th></tr></thead>
+      <thead><tr><th style="width:9%">Tag #</th><th>Species</th><th style="width:9%">CBH (cm)</th><th style="width:13%">Canopy ht (m)</th><th style="width:11%">New tag? (blue)</th><th style="width:11%">Old tag #</th><th style="width:8%">Dead?</th><th style="width:16%">Notes</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
     <button class="btn-secondary btn-small" data-add="adultTable">＋ Add tree</button>
@@ -308,6 +308,41 @@
 
 </main>
 
+<div id="heightCalcOverlay" style="display:none; position:fixed; inset:0; background:rgba(30,42,34,0.55); z-index:50; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#fff; border-radius:12px; padding:18px; max-width:360px; width:100%; max-height:88vh; overflow-y:auto;">
+    <h3 style="font-family:Georgia,serif; color:var(--forest); margin:0 0 12px; font-size:1.05rem;">Canopy height calculator</h3>
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <button type="button" class="btn-secondary btn-small" id="calcMethodDist" style="flex:1;">Distances (flat)</button>
+      <button type="button" class="btn-secondary btn-small" id="calcMethodAngle" style="flex:1;">Angles (sloped)</button>
+    </div>
+
+    <div id="calcDistFields">
+      <div class="field"><label>Distance to tree (a)</label><input type="number" step="any" id="calcA"></div>
+      <div class="field"><label>Distance to treetop (c)</label><input type="number" step="any" id="calcC"></div>
+      <div class="field"><label>Your eye height</label><input type="number" step="any" id="calcEyeHt"></div>
+      <p class="note" style="margin-top:-4px;">Assumes flat ground between you and the tree.</p>
+    </div>
+
+    <div id="calcAngleFields" style="display:none;">
+      <div class="field"><label>Horizontal distance to tree</label><input type="number" step="any" id="calcD"></div>
+      <div class="field"><label>Angle to treetop (°)</label><input type="number" step="any" id="calcAngleTop"></div>
+      <div class="field"><label>Angle to base (°) — negative if below eye level</label><input type="number" step="any" id="calcAngleBase"></div>
+      <p class="note" style="margin-top:-4px;">Self-corrects for sloped ground — no eye height needed.</p>
+    </div>
+
+    <div id="calcError" class="status-msg status-err" style="display:none;"></div>
+    <div class="computed" style="margin-top:10px;">
+      <span>Calculated height</span>
+      <span class="val" id="calcResult">—</span>
+    </div>
+
+    <div class="grid2" style="margin-top:14px;">
+      <button class="btn-secondary btn-small" id="calcCancelBtn" type="button">Cancel</button>
+      <button class="btn-primary btn-small" id="calcUseBtn" type="button" disabled>Use this value</button>
+    </div>
+  </div>
+</div>
+
 <footer class="actions">
   <button class="btn-secondary" id="clearBtn">Clear form</button>
   <button class="btn-primary" id="saveBtn">Save plot record</button>
@@ -395,13 +430,14 @@
 
   // ================= Dynamic table helpers =================
   const TABLE_DEFS = {
-    adultTable: { cols: ["tag","species","cbh","canopyHt","newTag","oldTag","dead","notes"], types: ["text","text","number","number","select-yn","text","select-yn","text"] },
+    adultTable: { cols: ["tag","species","cbh","canopyHt","newTag","oldTag","dead","notes"], types: ["text","text","number","number-calc","select-yn","text","select-yn","text"] },
     juvTable:   { cols: ["species","total"], types: ["text","number"] },
     unkTable:   { cols: ["name","location","description","collected"], types: ["text","text","text","select-yn"] }
   };
   function makeCell(type) {
     if (type === "select-yn") return `<select><option value="">—</option><option value="Y">Y</option><option value="N">N</option></select>`;
     if (type === "number") return `<input type="number" step="any">`;
+    if (type === "number-calc") return `<div style="display:flex; gap:4px; align-items:center;"><input type="number" step="any" style="flex:1; min-width:0;"><button type="button" class="calc-btn btn-small" style="padding:6px 7px; background:var(--sage); border-radius:6px;" title="Calculate from rangefinder readings">📐</button></div>`;
     return `<input type="text">`;
   }
   function addRow(tableId, values, placeholders) {
@@ -415,6 +451,8 @@
       input.dataset.col = col;
       if (values && values[col] !== undefined) input.value = values[col];
       if (placeholders && placeholders[col] !== undefined && input.tagName === "INPUT") input.placeholder = placeholders[col];
+      const calcBtn = td.querySelector(".calc-btn");
+      if (calcBtn) calcBtn.addEventListener("click", () => openHeightCalculator(input));
       tr.appendChild(td);
     });
     const delTd = document.createElement("td");
@@ -612,6 +650,84 @@
     const v = input.value.trim();
     if (v) { rapidSpecies.push(v); input.value = ""; renderChips(); }
   }
+
+  // ================= Canopy height calculator =================
+  let calcTargetInput = null;
+  let calcMethod = "dist";
+
+  async function openHeightCalculator(input) {
+    calcTargetInput = input;
+    ["calcA","calcC","calcEyeHt","calcD","calcAngleTop","calcAngleBase"].forEach(id => document.getElementById(id).value = "");
+    try {
+      const savedEyeHt = await dbGetSetting("calcEyeHeight");
+      if (savedEyeHt) document.getElementById("calcEyeHt").value = savedEyeHt;
+    } catch (e) { /* no saved eye height yet */ }
+    setCalcMethod("dist");
+    document.getElementById("heightCalcOverlay").style.display = "flex";
+  }
+  function closeHeightCalculator() {
+    document.getElementById("heightCalcOverlay").style.display = "none";
+    calcTargetInput = null;
+  }
+  function setCalcMethod(m) {
+    calcMethod = m;
+    document.getElementById("calcDistFields").style.display = m === "dist" ? "block" : "none";
+    document.getElementById("calcAngleFields").style.display = m === "angle" ? "block" : "none";
+    const distBtn = document.getElementById("calcMethodDist");
+    const angleBtn = document.getElementById("calcMethodAngle");
+    distBtn.className = "btn-small " + (m === "dist" ? "btn-primary" : "btn-secondary");
+    angleBtn.className = "btn-small " + (m === "angle" ? "btn-primary" : "btn-secondary");
+    distBtn.style.flex = "1"; angleBtn.style.flex = "1";
+    updateCalcResult();
+  }
+  document.getElementById("calcMethodDist").addEventListener("click", () => setCalcMethod("dist"));
+  document.getElementById("calcMethodAngle").addEventListener("click", () => setCalcMethod("angle"));
+  document.getElementById("calcCancelBtn").addEventListener("click", closeHeightCalculator);
+
+  function updateCalcResult() {
+    const errEl = document.getElementById("calcError");
+    const resultEl = document.getElementById("calcResult");
+    const useBtn = document.getElementById("calcUseBtn");
+    errEl.style.display = "none";
+    useBtn.disabled = true;
+    delete useBtn.dataset.value;
+    resultEl.textContent = "—";
+
+    let height = null;
+    if (calcMethod === "dist") {
+      const a = parseFloat(document.getElementById("calcA").value);
+      const c = parseFloat(document.getElementById("calcC").value);
+      const eyeHt = parseFloat(document.getElementById("calcEyeHt").value);
+      if (isNaN(a) || isNaN(c) || isNaN(eyeHt)) return;
+      if (a <= 0 || c <= 0) { errEl.textContent = "Distances must be greater than zero."; errEl.style.display = "block"; return; }
+      if (c <= a) { errEl.textContent = "Distance to treetop must be greater than distance to tree."; errEl.style.display = "block"; return; }
+      height = Math.sqrt(c * c - a * a) + eyeHt;
+    } else {
+      const d = parseFloat(document.getElementById("calcD").value);
+      const angTop = parseFloat(document.getElementById("calcAngleTop").value);
+      const angBase = parseFloat(document.getElementById("calcAngleBase").value);
+      if (isNaN(d) || isNaN(angTop) || isNaN(angBase)) return;
+      if (d <= 0) { errEl.textContent = "Horizontal distance must be greater than zero."; errEl.style.display = "block"; return; }
+      height = d * (Math.tan(angTop * Math.PI / 180) - Math.tan(angBase * Math.PI / 180));
+      if (height <= 0) { errEl.textContent = "Check your angles — result is zero or negative."; errEl.style.display = "block"; return; }
+    }
+    resultEl.textContent = height.toFixed(1) + " m";
+    useBtn.disabled = false;
+    useBtn.dataset.value = height.toFixed(1);
+  }
+  ["calcA","calcC","calcEyeHt","calcD","calcAngleTop","calcAngleBase"].forEach(id => {
+    document.getElementById(id).addEventListener("input", updateCalcResult);
+  });
+  document.getElementById("calcEyeHt").addEventListener("change", async (e) => {
+    if (e.target.value) { try { await dbSetSetting("calcEyeHeight", e.target.value); } catch (err) {} }
+  });
+  document.getElementById("calcUseBtn").addEventListener("click", () => {
+    const useBtn = document.getElementById("calcUseBtn");
+    if (calcTargetInput && useBtn.dataset.value) {
+      calcTargetInput.value = useBtn.dataset.value;
+      closeHeightCalculator();
+    }
+  });
 
   // ================= GPS =================
   document.getElementById("gpsBtn").addEventListener("click", () => {

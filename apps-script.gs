@@ -25,7 +25,7 @@
 
 const HEADERS = [
   "plotID", "date", "observers", "startTime", "lat", "lon",
-  "totalCanopy", "avgQuadratCanopy",
+  "totalCanopy",
   "adultTrees", "juvenileTrees", "quadrats", "rapidAssessment", "unknownSpecimens",
   "notes", "savedAt", "conflicts"
 ];
@@ -116,25 +116,11 @@ function mergeQuadrats_(existingQ, incomingQ, conflicts) {
       canopy: mergeScalar_(e.canopy, inc.canopy, "Quadrat " + k + " canopy %", conflicts),
       cwd: mergeScalar_(e.cwd, inc.cwd, "Quadrat " + k + " CWD %", conflicts),
       bare: mergeScalar_(e.bare, inc.bare, "Quadrat " + k + " bare soil %", conflicts),
-      dist: mergeScalar_(e.dist, inc.dist, "Quadrat " + k + " dist. to road/building", conflicts),
       unk: mergeScalar_(e.unk, inc.unk, "Quadrat " + k + " unknown collected", conflicts),
-      lat: mergeScalar_(e.lat, inc.lat, "Quadrat " + k + " GPS lat", conflicts),
-      lon: mergeScalar_(e.lon, inc.lon, "Quadrat " + k + " GPS lon", conflicts),
       species: mergeArrayByKey_(e.species, inc.species, "name", ["count"], "Quadrat " + k + " species", conflicts),
     };
   });
   return out;
-}
-
-function computeAvgCanopy_(quadrats) {
-  const vals = [];
-  QUADRAT_KEYS.forEach((k) => {
-    const v = parseFloat((quadrats[k] || {}).canopy);
-    if (!isNaN(v)) vals.push(v);
-  });
-  if (vals.length === 0) return "";
-  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-  return avg.toFixed(1) + "% (" + vals.length + "/5 entered)";
 }
 
 function mergeRecord_(existing, incoming) {
@@ -157,7 +143,6 @@ function mergeRecord_(existing, incoming) {
     savedAt: incoming.savedAt || existing.savedAt,
   };
   merged.quadrats = mergeQuadrats_(existing.quadrats, incoming.quadrats, conflicts);
-  merged.avgQuadratCanopy = computeAvgCanopy_(merged.quadrats);
 
   const existingNotes = existing.notes || "";
   const incomingNotes = incoming.notes || "";

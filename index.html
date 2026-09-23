@@ -204,12 +204,8 @@
 
   <section class="card">
     <h2><span class="num">2</span> Plot-Level Canopy</h2>
-    <div class="field"><label>Total canopy cover, whole 400 m² plot (nearest 5%)</label>
-      <input type="number" id="totalCanopy" min="0" max="100" step="5">
-    </div>
-    <div class="computed">
-      <span>Avg. of 5 quadrat readings (auto-calculated)</span>
-      <span class="val" id="avgQuadratCanopy">—</span>
+    <div class="field"><label>Total canopy cover, whole 400 m² plot (TreeTop App)</label>
+      <input type="number" id="totalCanopy" min="0" max="100" step="1">
     </div>
   </section>
 
@@ -239,7 +235,7 @@
 
   <section class="card">
     <h2><span class="num">5</span> Understory Quadrats (4 m² each)</h2>
-    <p class="note">Estimate % canopy cover using the CanopyApp; % coarse woody debris and % bare soil by eye. Distance to road/building measured from the quadrat center.</p>
+    <p class="note">Estimate % canopy cover using the CanopyApp; % coarse woody debris and % bare soil by eye.</p>
     <div id="quadratsWrap"></div>
   </section>
 
@@ -552,23 +548,12 @@
       block.dataset.quadKey = key;
       block.innerHTML = `
         <h3>Quadrat — ${label}</h3>
-        <div class="field">
-          <label>GPS coordinates (5 decimal places)</label>
-          <div class="gps-row">
-            <div class="field"><input type="text" class="q-lat" placeholder="Latitude"></div>
-            <div class="field"><input type="text" class="q-lon" placeholder="Longitude"></div>
-            <button class="btn-secondary btn-small q-gps-btn" type="button">📍</button>
-          </div>
-        </div>
         <div class="grid3">
           <div class="field"><label>% Canopy (CanopyApp)</label><input type="number" min="0" max="100" class="q-canopy"></div>
           <div class="field"><label>% Coarse woody debris</label><input type="number" min="0" max="100" class="q-cwd"></div>
           <div class="field"><label>% Bare soil</label><input type="number" min="0" max="100" class="q-bare"></div>
         </div>
-        <div class="grid2">
-          <div class="field"><label>Dist. to road/building (m)</label><input type="number" step="any" class="q-dist"></div>
-          <div class="field"><label>Unknown collected?</label><select class="q-unk"><option value="">—</option><option value="Y">Y</option><option value="N">N</option></select></div>
-        </div>
+        <div class="field"><label>Unknown collected?</label><select class="q-unk"><option value="">—</option><option value="Y">Y</option><option value="N">N</option></select></div>
         <table class="dyn q-species">
           <thead><tr><th>Species (seedling / herbaceous)</th><th style="width:30%">Stem count</th><th></th></tr></thead>
           <tbody></tbody>
@@ -577,22 +562,7 @@
       `;
       wrap.appendChild(block);
       block.querySelector(".add-row-q").addEventListener("click", () => addQuadratSpeciesRow(block));
-      block.querySelector(".q-canopy").addEventListener("input", updateAvgCanopy);
-      block.querySelector(".q-gps-btn").addEventListener("click", () => useQuadratLocation(block));
     });
-  }
-  function useQuadratLocation(block) {
-    if (!navigator.geolocation) { showStatus("Geolocation not supported on this device.", "err"); return; }
-    showStatus("Getting location…", "warn");
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        block.querySelector(".q-lat").value = pos.coords.latitude.toFixed(5);
-        block.querySelector(".q-lon").value = pos.coords.longitude.toFixed(5);
-        showStatus("Location captured.", "ok");
-      },
-      err => showStatus("Couldn't get location (" + err.message + "). Enter coordinates manually.", "err"),
-      { enableHighAccuracy: true, timeout: 15000 }
-    );
   }
   function addQuadratSpeciesRow(block, values) {
     const tbody = block.querySelector(".q-species tbody");
@@ -614,20 +584,12 @@
       })).filter(s => s.name !== "" || s.count !== "");
       out[key] = {
         canopy: block.querySelector(".q-canopy").value, cwd: block.querySelector(".q-cwd").value,
-        bare: block.querySelector(".q-bare").value, dist: block.querySelector(".q-dist").value,
+        bare: block.querySelector(".q-bare").value,
         unk: block.querySelector(".q-unk").value,
-        lat: block.querySelector(".q-lat").value, lon: block.querySelector(".q-lon").value,
         species
       };
     });
     return out;
-  }
-  function updateAvgCanopy() {
-    const vals = [...document.querySelectorAll(".q-canopy")].map(i => parseFloat(i.value)).filter(v => !isNaN(v));
-    const el = document.getElementById("avgQuadratCanopy");
-    if (vals.length === 0) { el.textContent = "—"; return; }
-    const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
-    el.textContent = avg.toFixed(1) + "% (" + vals.length + "/5 entered)";
   }
 
   // ================= Rapid assessment chips =================
@@ -772,7 +734,6 @@
       lat: document.getElementById("gpsLat").value,
       lon: document.getElementById("gpsLon").value,
       totalCanopy: document.getElementById("totalCanopy").value,
-      avgQuadratCanopy: document.getElementById("avgQuadratCanopy").textContent,
       adultTrees: readTable("adultTable"),
       juvenileTrees: readTable("juvTable"),
       quadrats: readQuadrats(),
@@ -803,14 +764,10 @@
         block.querySelector(".q-canopy").value = q.canopy || "";
         block.querySelector(".q-cwd").value = q.cwd || "";
         block.querySelector(".q-bare").value = q.bare || "";
-        block.querySelector(".q-dist").value = q.dist || "";
         block.querySelector(".q-unk").value = q.unk || "";
-        block.querySelector(".q-lat").value = q.lat || "";
-        block.querySelector(".q-lon").value = q.lon || "";
         (q.species||[]).forEach(s => addQuadratSpeciesRow(block, s));
       });
     }
-    updateAvgCanopy();
     rapidSpecies = (rec.rapidAssessment||[]).slice();
     renderChips();
     document.getElementById("notes").value = rec.notes || "";
@@ -821,7 +778,7 @@
     setPlotIdValue("");
     document.getElementById("plotDate").valueAsDate = new Date();
     clearTable("adultTable"); clearTable("juvTable"); clearTable("unkTable");
-    buildQuadrats(); updateAvgCanopy();
+    buildQuadrats();
     rapidSpecies = []; renderChips();
     editingId = null;
   }
@@ -886,13 +843,13 @@
   function buildCombinedCsv(recs) {
     let csv = "";
     const recsWithConflicts = recs.map(r => Object.assign({}, r, { conflicts: (r.conflicts||[]).join(" | ") }));
-    csv += toCsvBlock("PLOT SUMMARY", ["plotID","date","observers","startTime","lat","lon","totalCanopy","avgQuadratCanopy","conflicts"], recsWithConflicts);
+    csv += toCsvBlock("PLOT SUMMARY", ["plotID","date","observers","startTime","lat","lon","totalCanopy","conflicts"], recsWithConflicts);
     const adultRows = []; recs.forEach(r => (r.adultTrees||[]).forEach(t => adultRows.push({plotID:r.plotID, ...t})));
     csv += toCsvBlock("ADULT TREES", ["plotID","tag","species","cbh","canopyHt","newTag","oldTag","dead","notes"], adultRows);
     const juvRows = []; recs.forEach(r => (r.juvenileTrees||[]).forEach(t => juvRows.push({plotID:r.plotID, ...t})));
     csv += toCsvBlock("JUVENILE TREES", ["plotID","species","total"], juvRows);
-    const quadRows = []; recs.forEach(r => Object.entries(r.quadrats||{}).forEach(([key,q]) => quadRows.push({plotID:r.plotID, quadrat:key, lat:q.lat, lon:q.lon, canopy:q.canopy, cwd:q.cwd, bare:q.bare, dist:q.dist, unk:q.unk})));
-    csv += toCsvBlock("QUADRAT SUMMARY", ["plotID","quadrat","lat","lon","canopy","cwd","bare","dist","unk"], quadRows);
+    const quadRows = []; recs.forEach(r => Object.entries(r.quadrats||{}).forEach(([key,q]) => quadRows.push({plotID:r.plotID, quadrat:key, canopy:q.canopy, cwd:q.cwd, bare:q.bare, unk:q.unk})));
+    csv += toCsvBlock("QUADRAT SUMMARY", ["plotID","quadrat","canopy","cwd","bare","unk"], quadRows);
     const quadSpecies = []; recs.forEach(r => Object.entries(r.quadrats||{}).forEach(([key,q]) => (q.species||[]).forEach(s => quadSpecies.push({plotID:r.plotID, quadrat:key, name:s.name, count:s.count}))));
     csv += toCsvBlock("QUADRAT SPECIES", ["plotID","quadrat","name","count"], quadSpecies);
     const rapidRows = []; recs.forEach(r => (r.rapidAssessment||[]).forEach(sp => rapidRows.push({plotID:r.plotID, species:sp})));

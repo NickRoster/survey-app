@@ -33,6 +33,26 @@ const JSON_FIELDS = ["adultTrees", "juvenileTrees", "quadrats", "rapidAssessment
 const SHEET_NAME = "Plots";
 const QUADRAT_KEYS = ["NW", "NE", "SW", "SE", "Center"];
 
+// --- Live species feed ---
+// A separate, lightweight, low-stakes log: every time a student types a
+// species into a quadrat's species table, the app pings this feed (fire-
+// and-forget, needs real connectivity e.g. a mobile hotspot). Any device
+// can poll it back to see what's already been found in this plot's
+// quadrats today, without waiting for a full plot-record sync. This feed
+// is disposable reference data only — the actual, authoritative species
+// data still lives in each plot record's quadrats.species, synced the
+// normal way. Duplicate pings are expected and harmless; doGet dedupes.
+const SPECIES_SHEET_NAME = "SpeciesFeed";
+const SPECIES_HEADERS = ["plotID", "date", "quadrat", "species", "addedAt"];
+
+function getSpeciesSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SPECIES_SHEET_NAME);
+  if (!sheet) sheet = ss.insertSheet(SPECIES_SHEET_NAME);
+  if (sheet.getLastRow() === 0) sheet.appendRow(SPECIES_HEADERS);
+  return sheet;
+}
+
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
@@ -156,9 +176,23 @@ function mergeRecord_(existing, incoming) {
 
 // ---------- Web app entry points ----------
 function doPost(e) {
+  const body = JSON.parse(e.postData.contents);
+
+  // Lightweight species-feed ping: {kind:"species", plotID, date, quadrat, species}
+  if (body && !Array.isArray(body) && body.kind === "species") {
+    const sheet = getSpeciesSheet_();
+    sheet.appendRow([
+      body.plotID || "", body.date || "", body.quadrat || "", body.species || "",
+      new Date().toISOString()
+    ]);
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "ok" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Full plot-record sync (existing behavior): a plain array of records.
   const sheet = getSheet_();
-  const data = JSON.parse(e.postData.contents);
-  const incomingRecords = Array.isArray(data) ? data : [data];
+  const incomingRecords = Array.isArray(body) ? body : [body];
 
   const range = sheet.getDataRange();
   const values = range.getValues();
@@ -192,6 +226,31 @@ function doPost(e) {
 }
 
 function doGet(e) {
+  const params = (e && e.parameter) || {};
+
+  // Live species feed: ?kind=species&plotID=...&date=...
+  if (params.kind === "species") {
+    const sheet = getSpeciesSheet_();
+    const rows = sheet.getDataRange().getValues();
+    const dataRows = rows.slice(1);
+    const grouped = {};
+    dataRows.forEach((row) => {
+      const [plotID, date, quadrat, species] = row;
+      if (!plotID || !species) return;
+      if (params.plotID && String(plotID) !== String(params.plotID)) return;
+      if (params.date && String(date) !== String(params.date)) return;
+      const q = quadrat || "?";
+      if (!grouped[q]) grouped[q] = {};
+      grouped[q][species] = true; // dedupe
+    });
+    const out = {};
+    Object.keys(grouped).forEach((q) => { out[q] = Object.keys(grouped[q]); });
+    return ContentService
+      .createTextOutput(JSON.stringify(out))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Full merged plot records (existing behavior).
   const sheet = getSheet_();
   const rows = sheet.getDataRange().getValues();
   const headerRow = rows[0];

@@ -242,6 +242,16 @@
   <section class="card">
     <h2><span class="num">6</span> Rapid Assessment — Whole-Plot Walk-Through</h2>
     <p class="note">Species seen anywhere in the plot but not already recorded in a quadrat.</p>
+
+    <div style="border:1px dashed var(--line); border-radius:8px; padding:10px 12px; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <label style="margin:0;">Live from quadrats (needs hotspot/wifi)</label>
+        <button class="btn-ghost btn-small" id="refreshFeedBtn" type="button">↻ Refresh</button>
+      </div>
+      <p class="note" id="feedStatus" style="margin:6px 0 0;">Enter a Plot ID and date to check.</p>
+      <div id="speciesFeedList" style="font-size:0.85rem; margin-top:4px;"></div>
+    </div>
+
     <div class="rapid-chip-input">
       <input type="text" id="rapidInput" placeholder="Type a species name and press Add">
       <button class="btn-secondary btn-small" id="rapidAddBtn" type="button">Add</button>
@@ -535,7 +545,9 @@
     } else if (typeof ORIGINAL_TREE_DATA !== "undefined" && !ORIGINAL_TREE_DATA[pid]) {
       showStatus(`No 2009 reference data on file for ${pid}.`, "warn");
     }
+    loadSpeciesFeed();
   });
+  document.getElementById("plotIDOther").addEventListener("change", loadSpeciesFeed);
 
   // ================= Quadrats =================
   function buildQuadrats() {
@@ -573,6 +585,11 @@
       tr.querySelector('[data-col="count"]').value = values.count || "";
     }
     tr.querySelector(".row-del").onclick = () => tr.remove();
+    const nameInput = tr.querySelector('[data-col="name"]');
+    nameInput.addEventListener("change", () => {
+      const v = nameInput.value.trim();
+      if (v) pingSpeciesSeen(block.dataset.quadKey, v);
+    });
     tbody.appendChild(tr);
   }
   function readQuadrats() {
@@ -772,6 +789,7 @@
     renderChips();
     document.getElementById("notes").value = rec.notes || "";
     editingId = rec.id !== undefined ? rec.id : null;
+    if (typeof loadSpeciesFeed === "function") loadSpeciesFeed();
   }
   function resetForm() {
     ["observers","startTime","gpsLat","gpsLon","totalCanopy","notes"].forEach(id => document.getElementById(id).value = "");
@@ -781,6 +799,7 @@
     buildQuadrats();
     rapidSpecies = []; renderChips();
     editingId = null;
+    if (typeof loadSpeciesFeed === "function") loadSpeciesFeed();
   }
 
   // ================= Session strip (backed by IndexedDB) =================
@@ -897,6 +916,56 @@
     setEndpointLocked(!!val);
   });
 
+  // ================= Live species feed (needs connectivity, e.g. a hotspot) =================
+  let feedPollTimer = null;
+
+  async function pingSpeciesSeen(quadratKey, speciesName) {
+    if (!endpointUrl || !speciesName) return;
+    const pid = getPlotIdValue();
+    const date = document.getElementById("plotDate").value;
+    if (!pid || !date) return;
+    try {
+      await fetch(endpointUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ kind: "species", plotID: pid, date, quadrat: quadratKey, species: speciesName })
+      });
+    } catch (e) { /* best-effort — this is a bonus feature, never block on it */ }
+  }
+
+  async function loadSpeciesFeed() {
+    const statusEl = document.getElementById("feedStatus");
+    const listEl = document.getElementById("speciesFeedList");
+    if (!statusEl || !listEl) return; // section not in DOM yet
+    const pid = getPlotIdValue();
+    const date = document.getElementById("plotDate").value;
+    if (!endpointUrl) { statusEl.textContent = "Set the shared database URL in Settings to enable this."; listEl.innerHTML = ""; return; }
+    if (!pid || !date) { statusEl.textContent = "Enter a Plot ID and date to check."; listEl.innerHTML = ""; return; }
+    try {
+      const url = endpointUrl + (endpointUrl.includes("?") ? "&" : "?") +
+        "kind=species&plotID=" + encodeURIComponent(pid) + "&date=" + encodeURIComponent(date);
+      const res = await fetch(url, { method: "GET" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const keys = Object.keys(data).filter(k => data[k] && data[k].length);
+      listEl.innerHTML = keys.length === 0
+        ? "<em>Nothing logged in quadrats yet for this plot today.</em>"
+        : keys.map(k => `<div style="margin-bottom:3px;"><strong>${k}:</strong> ${data[k].join(", ")}</div>`).join("");
+      statusEl.textContent = "Updated " + new Date().toLocaleTimeString();
+    } catch (e) {
+      statusEl.textContent = "Couldn't reach the shared database right now (offline?).";
+    }
+  }
+
+  function startSpeciesFeedPolling() {
+    loadSpeciesFeed();
+    if (feedPollTimer) clearInterval(feedPollTimer);
+    feedPollTimer = setInterval(loadSpeciesFeed, 25000);
+  }
+
+  document.getElementById("refreshFeedBtn").addEventListener("click", loadSpeciesFeed);
+  document.getElementById("plotDate").addEventListener("change", loadSpeciesFeed);
+
   // ================= Shared database sync (needs connectivity) =================
   document.getElementById("uploadSharedBtn").addEventListener("click", async () => {
     if (!endpointUrl) { showStatus("Set the shared database URL in Settings first.", "err"); return; }
@@ -970,6 +1039,7 @@
     } catch (e) { /* no saved setting yet */ }
     setEndpointLocked(!!endpointUrl); // lock immediately if already configured; leave editable for first-time setup
     document.getElementById("plotDate").valueAsDate = new Date();
+    startSpeciesFeedPolling();
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").catch(() => { /* offline on first load; will retry next visit */ });

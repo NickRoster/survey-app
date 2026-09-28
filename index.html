@@ -100,12 +100,21 @@
   button {
     font-family: inherit; cursor: pointer; border: none; border-radius: 7px;
     font-weight: 600; font-size: 0.85rem;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.08s ease, opacity 0.08s ease, background-color 0.08s ease;
+    touch-action: manipulation;
   }
   .btn-primary { background: var(--forest); color: #fff; padding: 10px 14px; }
   .btn-secondary { background: var(--sage); color: var(--forest-dark); padding: 10px 14px; }
   .btn-rust { background: var(--rust); color: #fff; padding: 10px 14px; }
   .btn-ghost { background: transparent; color: var(--forest); border: 1px solid var(--forest); padding: 8px 12px; }
   .btn-small { padding: 6px 10px; font-size: 0.78rem; border-radius: 6px; }
+  /* Every button now visibly presses down on tap/click, so there's always
+     a clear signal a touch registered, even before whatever the button
+     does has finished (or failed silently, e.g. offline). */
+  button:active:not(:disabled) { transform: scale(0.94); opacity: 0.75; }
+  .btn-primary:active:not(:disabled) { background: var(--forest-dark); }
+  .btn-secondary:active:not(:disabled), .btn-ghost:active:not(:disabled) { background: var(--tag-blue, #cfe0e8); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
 
   table.dyn { width: 100%; border-collapse: collapse; margin-top: 8px; }
@@ -963,7 +972,18 @@
     feedPollTimer = setInterval(loadSpeciesFeed, 25000);
   }
 
-  document.getElementById("refreshFeedBtn").addEventListener("click", loadSpeciesFeed);
+  document.getElementById("refreshFeedBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("refreshFeedBtn");
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "↻ Refreshing…";
+    try {
+      await loadSpeciesFeed();
+    } finally {
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+    }
+  });
   document.getElementById("plotDate").addEventListener("change", loadSpeciesFeed);
 
   // ================= Shared database sync (needs connectivity) =================

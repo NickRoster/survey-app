@@ -1000,6 +1000,8 @@
         body: JSON.stringify(unsynced)
       });
       if (!res.ok) throw new Error("Server responded with " + res.status);
+      const result = await res.json();
+      if (result && result.status === "error") throw new Error("Server error: " + result.message);
       for (const rec of unsynced) { rec.synced = true; await dbPutPlot(rec); }
       records = await dbGetAllPlots();
       renderSessionStrip();
@@ -1021,6 +1023,7 @@
       const res = await fetch(endpointUrl, { method: "GET" });
       if (!res.ok) throw new Error("Server responded with " + res.status);
       const all = await res.json();
+      if (all && !Array.isArray(all) && all.status === "error") throw new Error("Server error: " + all.message);
       const conflictCount = all.reduce((n, r) => n + ((r.conflicts || []).length), 0);
       sharedStatus.innerHTML = conflictCount > 0
         ? `<div class="status-msg status-warn">${all.length} plot record(s) — ${conflictCount} flagged conflict(s) need review below.</div>`

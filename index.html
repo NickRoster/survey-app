@@ -826,12 +826,21 @@
   }
 
   document.getElementById("saveBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("saveBtn");
+    const originalLabel = btn.textContent;
     const rec = gatherForm();
     if (!rec.plotID) { showStatus("Enter a Plot ID before saving.", "err"); return; }
     if (editingId !== null) {
       const existing = records.find(r => r.id === editingId);
       rec.synced = existing ? existing.synced : false;
     }
+    // The confirmation banner lives at the top of the page, but this button
+    // sits in a fixed footer — on a long record you're scrolled well past
+    // the banner and never see it. So the button itself has to carry the
+    // feedback: it changes the instant you tap it, and again once the save
+    // actually finishes, regardless of scroll position.
+    btn.disabled = true;
+    btn.textContent = "Saving…";
     try {
       const newId = await dbPutPlot(rec);
       rec.id = editingId !== null ? editingId : newId;
@@ -839,8 +848,14 @@
       renderSessionStrip();
       resetForm();
       showStatus("Plot record saved to this device.", "ok");
+      btn.textContent = "✓ Saved!";
+      btn.style.background = "var(--forest-dark)";
+      setTimeout(() => { btn.textContent = originalLabel; btn.style.background = ""; btn.disabled = false; }, 1400);
     } catch (e) {
       showStatus("Couldn't save to device storage: " + e.message, "err");
+      btn.textContent = "✗ Save failed";
+      btn.style.background = "var(--rust)";
+      setTimeout(() => { btn.textContent = originalLabel; btn.style.background = ""; btn.disabled = false; }, 2000);
     }
   });
 

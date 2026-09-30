@@ -198,7 +198,6 @@
       </div>
       <div class="field"><label>Date</label><input type="date" id="plotDate"></div>
       <div class="field"><label>Observer(s)</label><input type="text" id="observers"></div>
-      <div class="field"><label>Start time</label><input type="time" id="startTime"></div>
     </div>
     <div class="field">
       <label>GPS coordinates — center of plot (5 decimal places)</label>
@@ -758,7 +757,6 @@
       plotID: getPlotIdValue(),
       date: document.getElementById("plotDate").value,
       observers: document.getElementById("observers").value,
-      startTime: document.getElementById("startTime").value,
       lat: document.getElementById("gpsLat").value,
       lon: document.getElementById("gpsLon").value,
       totalCanopy: document.getElementById("totalCanopy").value,
@@ -778,7 +776,6 @@
     setPlotIdValue(rec.plotID || "");
     document.getElementById("plotDate").value = rec.date || "";
     document.getElementById("observers").value = rec.observers || "";
-    document.getElementById("startTime").value = rec.startTime || "";
     document.getElementById("gpsLat").value = rec.lat || "";
     document.getElementById("gpsLon").value = rec.lon || "";
     document.getElementById("totalCanopy").value = rec.totalCanopy || "";
@@ -803,7 +800,7 @@
     if (typeof loadSpeciesFeed === "function") loadSpeciesFeed();
   }
   function resetForm() {
-    ["observers","startTime","gpsLat","gpsLon","totalCanopy","notes"].forEach(id => document.getElementById(id).value = "");
+    ["observers","gpsLat","gpsLon","totalCanopy","notes"].forEach(id => document.getElementById(id).value = "");
     setPlotIdValue("");
     document.getElementById("plotDate").valueAsDate = new Date();
     clearTable("adultTable"); clearTable("juvTable"); clearTable("unkTable");
@@ -888,7 +885,7 @@
   function buildCombinedCsv(recs) {
     let csv = "";
     const recsWithConflicts = recs.map(r => Object.assign({}, r, { conflicts: (r.conflicts||[]).join(" | ") }));
-    csv += toCsvBlock("PLOT SUMMARY", ["plotID","date","observers","startTime","lat","lon","totalCanopy","conflicts"], recsWithConflicts);
+    csv += toCsvBlock("PLOT SUMMARY", ["plotID","date","observers","lat","lon","totalCanopy","conflicts"], recsWithConflicts);
     const adultRows = []; recs.forEach(r => (r.adultTrees||[]).forEach(t => adultRows.push({plotID:r.plotID, ...t})));
     csv += toCsvBlock("ADULT TREES", ["plotID","tag","species","cbh","canopyHt","newTag","oldTag","dead","notes"], adultRows);
     const juvRows = []; recs.forEach(r => (r.juvenileTrees||[]).forEach(t => juvRows.push({plotID:r.plotID, ...t})));

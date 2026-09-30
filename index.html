@@ -300,6 +300,8 @@
         <button class="btn-rust btn-small" id="uploadSharedBtn">↑ Upload session to shared DB</button>
         <button class="btn-secondary btn-small" id="refreshSharedBtn">↻ Load shared database</button>
       </div>
+      <button class="btn-ghost btn-small" id="forceResyncBtn" type="button" style="margin-top:8px; width:100%;">⟲ Force re-sync everything on this device</button>
+      <p class="note" style="margin-top:6px;">Use this if you're not sure a record actually made it to the shared database, even though this device says it's synced. It's always safe — re-sending data that's already correct just gets quietly ignored on the other end, nothing gets duplicated or overwritten.</p>
       <div id="sharedStatus" style="margin-top:10px;"></div>
       <div id="sharedList" style="margin-top:10px;"></div>
       <button class="btn-ghost btn-small" id="downloadSharedBtn" style="margin-top:10px; display:none;">⬇ Download combined dataset (.csv)</button>
@@ -1002,28 +1004,42 @@
   document.getElementById("plotDate").addEventListener("change", loadSpeciesFeed);
 
   // ================= Shared database sync (needs connectivity) =================
-  document.getElementById("uploadSharedBtn").addEventListener("click", async () => {
-    if (!endpointUrl) { showStatus("Set the shared database URL in Settings first.", "err"); return; }
-    const unsynced = records.filter(r => !r.synced);
-    if (unsynced.length === 0) { showStatus("Nothing new to upload — everything is already synced.", "warn"); return; }
+  // Shared by the normal upload button and the "force re-sync everything"
+  // button below — the only difference between them is which records get
+  // passed in (just-unsynced vs. literally everything on this device).
+  async function uploadRecordsToShared_(toUpload) {
     const sharedStatus = document.getElementById("sharedStatus");
-    sharedStatus.innerHTML = `<div class="status-msg status-warn">Uploading ${unsynced.length} plot(s)… needs an internet connection.</div>`;
+    if (!endpointUrl) { showStatus("Set the shared database URL in Settings first.", "err"); return; }
+    if (toUpload.length === 0) { showStatus("Nothing new to upload — everything is already synced.", "warn"); return; }
+    sharedStatus.innerHTML = `<div class="status-msg status-warn">Uploading ${toUpload.length} plot(s)… needs an internet connection.</div>`;
     try {
       const res = await fetch(endpointUrl, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids CORS preflight against Apps Script
-        body: JSON.stringify(unsynced)
+        body: JSON.stringify(toUpload)
       });
       if (!res.ok) throw new Error("Server responded with " + res.status);
       const result = await res.json();
       if (result && result.status === "error") throw new Error("Server error: " + result.message);
-      for (const rec of unsynced) { rec.synced = true; await dbPutPlot(rec); }
+      for (const rec of toUpload) { rec.synced = true; await dbPutPlot(rec); }
       records = await dbGetAllPlots();
       renderSessionStrip();
-      sharedStatus.innerHTML = `<div class="status-msg status-ok">Uploaded ${unsynced.length} plot record(s) to the shared database.</div>`;
+      sharedStatus.innerHTML = `<div class="status-msg status-ok">Uploaded ${toUpload.length} plot record(s) to the shared database.</div>`;
     } catch (e) {
       sharedStatus.innerHTML = `<div class="status-msg status-err">Upload failed — check you're on wifi and the URL is correct. (${e.message})</div>`;
     }
+  }
+
+  document.getElementById("uploadSharedBtn").addEventListener("click", async () => {
+    await uploadRecordsToShared_(records.filter(r => !r.synced));
+  });
+
+  document.getElementById("forceResyncBtn").addEventListener("click", async () => {
+    if (records.length === 0) { showStatus("No plot records on this device yet.", "warn"); return; }
+    if (!confirm("Re-send all " + records.length + " plot record(s) on this device to the shared database, even the ones already marked synced?")) return;
+    for (const rec of records) rec.synced = false;
+    for (const rec of records) await dbPutPlot(rec);
+    await uploadRecordsToShared_(records.slice());
   });
 
   document.getElementById("refreshSharedBtn").addEventListener("click", loadSharedDatabase);

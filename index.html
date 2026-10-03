@@ -222,6 +222,16 @@
   <section class="card">
     <h2><span class="num">3</span> Adult Trees (CBH &gt; 15 cm)</h2>
     <p class="note">Locate existing tagged trees; give newly-recruited adults (no existing tag) a new blue tag. If an original tag is unreadable or swallowed by growth, give the tree a new blue tag (same as a new recruit) and record the old tag number in "Old tag #" — that field is what distinguishes a re-tag from a genuine new recruit, since the tag color is the same. Mark "Dead?" for any previously tagged tree found dead or fallen. Tap 📐 next to Canopy ht to calculate it from rangefinder readings.</p>
+
+    <div style="border:1px dashed var(--line); border-radius:8px; padding:10px 12px; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <label style="margin:0;">Tags already logged today (needs hotspot/wifi)</label>
+        <button class="btn-ghost btn-small" id="refreshTreeFeedBtn" type="button">↻ Refresh</button>
+      </div>
+      <p class="note" id="treeFeedStatus" style="margin:6px 0 0;">Enter a Plot ID and date to check.</p>
+      <div id="treeFeedList" style="font-size:0.85rem; margin-top:4px;"></div>
+    </div>
+
     <table class="dyn" id="adultTable">
       <thead><tr><th style="width:9%">Tag #</th><th>Species</th><th style="width:9%">CBH (cm)</th><th style="width:13%">Canopy ht (m)</th><th style="width:11%">New tag? (blue)</th><th style="width:11%">Old tag #</th><th style="width:8%">Dead?</th><th style="width:16%">Notes</th><th></th></tr></thead>
       <tbody></tbody>
@@ -558,6 +568,22 @@
     tr.appendChild(delTd);
     tbody.appendChild(tr);
     if (tr.querySelector(".photo-btn")) wirePhotoControls(tr);
+    if (tableId === "adultTable") {
+      // Ping on ANY field in the row, not just tag/species — most adult
+      // trees are pre-filled from the 2009 data (tag + species already
+      // set programmatically), so the real "we found/measured this tree
+      // today" signal is usually entering a CBH or canopy height, not
+      // touching the tag field at all.
+      const tagInput = tr.querySelector('[data-col="tag"]');
+      const speciesInput = tr.querySelector('[data-col="species"]');
+      const pingThisRow = () => {
+        const t = tagInput.value.trim();
+        if (t) pingTreeSeen(t, speciesInput.value.trim());
+      };
+      tr.querySelectorAll("input,select").forEach((el) => {
+        if (el.type !== "hidden" && el.type !== "file") el.addEventListener("change", pingThisRow);
+      });
+    }
   }
   function readTable(tableId) {
     const def = TABLE_DEFS[tableId];
@@ -638,8 +664,9 @@
       showStatus(`No 2009 reference data on file for ${pid}.`, "warn");
     }
     loadSpeciesFeed();
+    loadTreeFeed();
   });
-  document.getElementById("plotIDOther").addEventListener("change", loadSpeciesFeed);
+  document.getElementById("plotIDOther").addEventListener("change", () => { loadSpeciesFeed(); loadTreeFeed(); });
 
   // ================= Quadrats =================
   function buildQuadrats() {
@@ -1071,10 +1098,53 @@
     }
   }
 
+  // ================= Live tagged-tree feed (same idea, for Adult Trees) =================
+  // Lets a group check, before climbing all over a plot, whether another
+  // iPad has already logged a particular tag number today — same
+  // fire-and-forget ping + polling pattern as the quadrat species feed.
+  async function pingTreeSeen(tag, speciesName) {
+    if (!endpointUrl || !tag) return;
+    const pid = getPlotIdValue();
+    const date = document.getElementById("plotDate").value;
+    if (!pid || !date) return;
+    try {
+      await fetch(endpointUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ kind: "tree", plotID: pid, date, tag, species: speciesName || "" })
+      });
+    } catch (e) { /* best-effort — this is a bonus feature, never block on it */ }
+  }
+
+  async function loadTreeFeed() {
+    const statusEl = document.getElementById("treeFeedStatus");
+    const listEl = document.getElementById("treeFeedList");
+    if (!statusEl || !listEl) return; // section not in DOM yet
+    const pid = getPlotIdValue();
+    const date = document.getElementById("plotDate").value;
+    if (!endpointUrl) { statusEl.textContent = "Set the shared database URL in Settings to enable this."; listEl.innerHTML = ""; return; }
+    if (!pid || !date) { statusEl.textContent = "Enter a Plot ID and date to check."; listEl.innerHTML = ""; return; }
+    try {
+      const url = endpointUrl + (endpointUrl.includes("?") ? "&" : "?") +
+        "kind=tree&plotID=" + encodeURIComponent(pid) + "&date=" + encodeURIComponent(date);
+      const res = await fetch(url, { method: "GET" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const tags = Object.keys(data);
+      listEl.innerHTML = tags.length === 0
+        ? "<em>No tags logged for this plot today yet.</em>"
+        : tags.map(t => data[t] ? `${t} (${data[t]})` : t).join(", ");
+      statusEl.textContent = "Updated " + new Date().toLocaleTimeString();
+    } catch (e) {
+      statusEl.textContent = "Couldn't reach the shared database right now (offline?).";
+    }
+  }
+
   function startSpeciesFeedPolling() {
     loadSpeciesFeed();
+    loadTreeFeed();
     if (feedPollTimer) clearInterval(feedPollTimer);
-    feedPollTimer = setInterval(loadSpeciesFeed, 25000);
+    feedPollTimer = setInterval(() => { loadSpeciesFeed(); loadTreeFeed(); }, 25000);
   }
 
   document.getElementById("refreshFeedBtn").addEventListener("click", async () => {
@@ -1089,7 +1159,20 @@
       btn.disabled = false;
     }
   });
+  document.getElementById("refreshTreeFeedBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("refreshTreeFeedBtn");
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "↻ Refreshing…";
+    try {
+      await loadTreeFeed();
+    } finally {
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+    }
+  });
   document.getElementById("plotDate").addEventListener("change", loadSpeciesFeed);
+  document.getElementById("plotDate").addEventListener("change", loadTreeFeed);
 
   // ================= Shared database sync (needs connectivity) =================
   // Shared by the normal upload button and the "force re-sync everything"

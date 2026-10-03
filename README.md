@@ -93,6 +93,19 @@ duplicate entries (two students correctly logging the same tree the same
 way) are merged quietly with no flag. The "Load shared database" view in
 the app highlights any plot with outstanding conflicts.
 
+## Live tagged-tree feed
+
+Same idea as the quadrat species feed, but for Adult Trees: the "Tags
+already logged today" box at the top of that section shows every tag
+number another iPad has already entered for this plot and date, so two
+groups don't end up re-measuring the same tree. It updates automatically
+every 25 seconds (or tap Refresh) and a ping goes out the moment anyone
+fills in a field on a tree row — most adult trees are pre-filled from the
+2009 data, so the signal that matters is usually "a CBH got typed in,"
+not the tag number itself. Like the species feed, this needs real wifi or
+a hotspot to work, and it's disposable reference data only — the actual
+tree measurements still travel through the normal plot-record sync.
+
 ## Photos for unknown specimens
 
 Both the **Unknown Specimen Log** and each quadrat's species rows have a

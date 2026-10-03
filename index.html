@@ -221,7 +221,7 @@
 
   <section class="card">
     <h2><span class="num">3</span> Adult Trees (CBH &gt; 15 cm)</h2>
-    <p class="note">Locate existing tagged trees; give newly-recruited adults (no existing tag) a new blue tag. If an original tag is unreadable or swallowed by growth, give the tree a new blue tag (same as a new recruit) and record the old tag number in "Old tag #" — that field is what distinguishes a re-tag from a genuine new recruit, since the tag color is the same. Mark "Dead?" for any previously tagged tree found dead or fallen. Tap 📐 next to Canopy ht to calculate it from rangefinder readings.</p>
+    <p class="note">Locate existing tagged trees; give newly-recruited adults (no existing tag) a new blue tag. If an original tag is unreadable or swallowed by growth, give the tree a new blue tag (same as a new recruit) and record the old tag number in "Old tag #" — that field is what distinguishes a re-tag from a genuine new recruit, since the tag color is the same. Mark "Dead?" for any previously tagged tree found dead or fallen. For a multi-trunk tree, enter each trunk's CBH added together, e.g. "89.5 + 12.5". Tap 📐 next to Canopy ht to calculate it from rangefinder readings.</p>
 
     <div style="border:1px dashed var(--line); border-radius:8px; padding:10px 12px; margin-bottom:12px;">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
@@ -456,7 +456,10 @@
 
   // ================= Dynamic table helpers =================
   const TABLE_DEFS = {
-    adultTable: { cols: ["tag","species","cbh","canopyHt","newTag","oldTag","dead","notes"], types: ["text","text","number","number-calc","select-yn","text","select-yn","text"] },
+    // CBH is "text" rather than "number" on purpose: multi-trunk trees are
+    // reported as each trunk's CBH added together (e.g. "89.5 + 12.5"),
+    // which a number input's numeric keyboard won't even let you type.
+    adultTable: { cols: ["tag","species","cbh","canopyHt","newTag","oldTag","dead","notes"], types: ["text","text","text","number-calc","select-yn","text","select-yn","text"] },
     juvTable:   { cols: ["species","total"], types: ["text","number"] },
     unkTable:   { cols: ["name","location","description","collected","photo","photoUrl"], types: ["text","text","text","select-yn","photo","hidden"] }
   };
@@ -558,6 +561,7 @@
       input.dataset.col = col;
       if (values && values[col] !== undefined) input.value = values[col];
       if (placeholders && placeholders[col] !== undefined && input.tagName === "INPUT" && input.type !== "hidden") input.placeholder = placeholders[col];
+      else if (tableId === "adultTable" && col === "cbh" && input.tagName === "INPUT") input.placeholder = "e.g. 89.5 or 89.5 + 12.5";
       const calcBtn = td.querySelector(".calc-btn");
       if (calcBtn) calcBtn.addEventListener("click", () => openHeightCalculator(input));
       tr.appendChild(td);

@@ -93,8 +93,33 @@ duplicate entries (two students correctly logging the same tree the same
 way) are merged quietly with no flag. The "Load shared database" view in
 the app highlights any plot with outstanding conflicts.
 
+## Photos for unknown specimens
+
+Both the **Unknown Specimen Log** and each quadrat's species rows have a
+📷 button. Tapping it opens the iPad's camera (or photo library); the
+photo is shrunk down on-device first so it doesn't bloat storage or
+syncing. Photos stay local until the next "Upload session to shared DB,"
+at which point each one is uploaded to a shared Google Drive folder named
+**"CSA Survey Photos"** (created automatically the first time anyone
+uploads a photo) and a view link is saved into that specimen's row —
+visible to any iPad after its next sync, and in the "Load shared
+database" view and the exported CSV. If a photo fails to upload (bad
+wifi), it just stays pending on that device and retries on the next sync
+— nothing is lost.
+
+Because this needs permission to write to Google Drive, the **first**
+time you redeploy the updated `apps-script.gs`, Google will ask you to
+re-approve permissions (it'll now mention Drive access, not just Sheets)
+— that's expected, just click through it once.
+
 ## Updating the app later
 
 If you edit `index.html` (or any file) and re-upload it to GitHub, the
 service worker will pick up the new version the next time each iPad has
 wifi and reopens the app.
+
+If you edit `apps-script.gs`, paste the new version into the Apps Script
+editor and use **Deploy → Manage deployments → ✎ (edit) → Version: New
+version → Deploy** — this keeps the same `/exec` URL so no iPad needs
+reconfiguring. Using "New deployment" instead creates a different URL and
+breaks every iPad already set up.

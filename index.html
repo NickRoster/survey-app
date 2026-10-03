@@ -133,6 +133,14 @@
     font-family: "SFMono-Regular", Menlo, monospace; font-size: 0.78rem; color: var(--forest);
     margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.04em;
   }
+  /* A light, distinct tint per quadrat so the five sections are easy to
+     tell apart at a glance — just the block's background/border, nothing
+     else changes. */
+  .quadrat-block[data-quad-key="NW"]     { background: #EAF3E8; border-color: #BBD9B2; }
+  .quadrat-block[data-quad-key="NE"]     { background: #E8F0F7; border-color: #B6CEE3; }
+  .quadrat-block[data-quad-key="SW"]     { background: #FBF2E2; border-color: #E6CC9B; }
+  .quadrat-block[data-quad-key="SE"]     { background: #F8E9ED; border-color: #E3B7C3; }
+  .quadrat-block[data-quad-key="Center"] { background: #EFE8F4; border-color: #CDB4DC; }
   .computed {
     background: var(--sage); border-radius: 7px; padding: 10px 12px; font-size: 0.85rem;
     color: var(--forest-dark); display: flex; justify-content: space-between; align-items: center;

@@ -261,7 +261,7 @@
 
   <section class="card">
     <h2><span class="num">5</span> Understory Quadrats (4 m² each)</h2>
-    <p class="note">Estimate % coarse woody debris and % bare soil by eye.</p>
+    <p class="note">Estimate % debris and % bare soil by eye. Debris and Bare soil should add up to 100%.</p>
     <div id="quadratsWrap"></div>
   </section>
 
@@ -692,7 +692,7 @@
       block.innerHTML = `
         <h3>Quadrat — ${label}</h3>
         <div class="grid3">
-          <div class="field"><label>% Coarse woody debris</label><input type="number" min="0" max="100" class="q-cwd"></div>
+          <div class="field"><label>% Debris</label><input type="number" min="0" max="100" class="q-cwd"></div>
           <div class="field"><label>% Bare soil</label><input type="number" min="0" max="100" class="q-bare"></div>
         </div>
         <div class="field"><label>Unknown collected?</label><select class="q-unk"><option value="">—</option><option value="Y">Y</option><option value="N">N</option></select></div>
